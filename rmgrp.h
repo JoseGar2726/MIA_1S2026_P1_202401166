@@ -1,5 +1,5 @@
-#ifndef MKGRP_H
-#define MKGRP_H
+#ifndef RMGRP_H
+#define RMGRP_H
 
 #include <string>
 #include <iostream>
@@ -9,9 +9,9 @@
 #include "sesion.h"
 #include "structures.h"
 
-class ComandoMkgrp{
+class ComandoRmgrp{
 public:
-    static std::string execute(const std::string& nombre){
+    static std::string execute(const std::string& name){
         if(!Sesion::activo){
             return "Error: se require tener sesion iniciada para la ejecucion de este comando";
         }
@@ -20,23 +20,21 @@ public:
             return "Error: Solo el usuario 'root' tiene permisos para realizar este comando";
         }
 
-        if(nombre.length() > 10){
-            return "Error: el nombre del grupo no puede tener mas de 10 caracteres";
-        }
-
         std::string ruta = Sesion::rutaDisco;
         int inicio = Sesion::inicioParticion;
 
         std::string contenidoUsuarios = leerTxtUsuarios(ruta, inicio);
-        if(contenidoUsuarios.empty()){
+        if (contenidoUsuarios.empty()){
             return "Error: no se puedo leer users.txt";
         }
 
-        std::stringstream iss(contenidoUsuarios);
+        std::istringstream iss(contenidoUsuarios);
         std::string linea;
-        int maxGrpId = 0;
+        std::string nuevoContenido = "";
+        bool encontrado = false;
+        bool yaEliminado = false;
 
-        while(std::getline(iss, linea, '\n')){
+        while (std::getline(iss, linea, '\n')){
             if (linea.empty()) continue;
 
             std::stringstream ss(linea);
@@ -46,33 +44,40 @@ public:
             while (std::getline(ss, item, ',')){
                 size_t primero = item.find_first_not_of(' ');
                 size_t ultimo = item.find_last_not_of(' ');
+
                 if(primero != std::string::npos && ultimo != std::string::npos){
                     tokens.push_back(item.substr(primero, ultimo - primero + 1));
                 }
             }
 
-            if (tokens.size() == 3 && tokens[1] == "G"){
-                int idActual = std::stoi(tokens[0]);
-
-                if(tokens[2] == nombre && idActual != 0){
-                    return "Error: eL grupo '" + nombre + "' ya existe";
+            if (tokens.size() >= 3 && tokens[1] == "G" && tokens[2] == name){
+                if(tokens[0] == "0"){
+                    yaEliminado = true;
+                    nuevoContenido += linea + "\n";
+                } else {
+                    encontrado = true;
+                    nuevoContenido += "0, G, " + name + "\n";
                 }
-
-                if(idActual > maxGrpId){
-                    maxGrpId = idActual;
-                }
-            }
+            } else {
+                nuevoContenido += linea + "\n";
+            } 
         }
 
-        std::string nuevaLinea = std::to_string(maxGrpId + 1) + ", G, " + nombre + "\n";
-        contenidoUsuarios += nuevaLinea;
-
-        if(!escribirTxtUsuarios(ruta, inicio, contenidoUsuarios)){
-            return "Error: Error al guardar el grupo";
+        if(yaEliminado && !encontrado){
+            return "Error: el grupo '" + name + "' ya se encuentra eliminado";
         }
 
-        return "Grupo '" + nombre + "' creado exitosamente con ID " + std::to_string(maxGrpId + 1) + ".";
+        if(!encontrado){
+            return "Error: el grupo '" + name + "' no existe";
+        }
+
+        if(!escribirTxtUsuarios(ruta, inicio, nuevoContenido)){
+            return "Error: problema al guardar los cambios";
+        }
+
+        return "Grupo '" + name + "' elimado exitosamente";
     }
+
 private:
     static std::string leerTxtUsuarios(const std::string& ruta, int inicioParticion){
         std::string content = "";

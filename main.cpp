@@ -11,6 +11,9 @@
 #include "mkfs.h"    
 #include "login.h"  
 #include "mkgrp.h" 
+#include "rmgrp.h"
+#include "mkusr.h"
+#include "rmusr.h"
 
 // Función para convertir string a minúsculas
 std::string toLowerCase(const std::string& str) {
@@ -263,6 +266,48 @@ std::string executeCommand(const std::string& commandLine) {
 
         nombre = removeQuotes(nombre);
         return ComandoMkgrp::execute(nombre);
+    
+    //COMANDO RMGRP
+    } else if (cmd == "rmgrp"){
+        std::string nombre = parseParameter(commandLine, "-name");
+
+        if(nombre.empty()){
+            return "Error: rmgrp requiere el parametro -name\n"
+                   "Uso: rmgrp -name=nombre";
+        }
+
+        nombre = removeQuotes(nombre);
+        return ComandoRmgrp::execute(nombre);
+
+    //COMANDO MKUSR
+    } else if (cmd == "mkusr"){
+        std::string nombre = parseParameter(commandLine, "-user");
+        std::string pass = parseParameter(commandLine, "-pass");
+        std::string grupo = parseParameter(commandLine, "-grp");
+
+        if(nombre.empty() || pass.empty() || grupo.empty()){
+            return "Error: mkusr requiere los parametros -user, -pass y -grp\n"
+                   "Uso: mkusr -user=nombre -pass=contrasena -grp=grupo";
+        }
+
+        nombre = removeQuotes(nombre);
+        pass = removeQuotes(pass);
+        grupo = removeQuotes(grupo);
+
+        return ComandoMkusr::execute(nombre, pass, grupo);
+    
+    //COMANDO RMUSR
+    } else if (cmd == "rmusr"){
+        std::string nombre = parseParameter(commandLine, "-user");
+
+        if(nombre.empty()){
+            return "Error: rmusr requiere el parametro -user\n"
+                   "Uso: mkusr -user=nombre";
+        }
+
+        nombre = removeQuotes(nombre);
+
+        return ComandoRmusr::execute(nombre);
 
     //COMANDO INFO
     } else if (cmd == "info") {
