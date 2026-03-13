@@ -315,6 +315,8 @@ namespace ComandoFdisk {
                 sizeInBytes = tamano * 1024;
             } else if (unidad == "m" || unidad == "M") {
                 sizeInBytes = tamano * 1024 * 1024;
+             } else if (unidad == "b" || unidad == "B") {
+                sizeInBytes = tamano;
             } else {
                 return "Error: Unidad no válida. Use 'k' para KB o 'm' para MB";
             }

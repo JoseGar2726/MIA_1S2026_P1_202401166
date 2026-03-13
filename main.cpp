@@ -8,12 +8,17 @@
 #include <cctype>  
 #include "fdisk.h"
 #include "mount.h"
+#include "cat.h"
 #include "mkfs.h"    
 #include "login.h"  
 #include "mkgrp.h" 
 #include "rmgrp.h"
 #include "mkusr.h"
 #include "rmusr.h"
+#include "chgrp.h"
+#include "mkfile.h"
+#include "mkdir.h"
+#include "rep.h"
 
 // Función para convertir string a minúsculas
 std::string toLowerCase(const std::string& str) {
@@ -85,7 +90,7 @@ std::string executeCommand(const std::string& commandLine) {
     cmd = toLowerCase(cmd);
 
     //COMANDO MKDISK
-    if (cmd == "mkdisk") {
+    if (cmd == "mkdisk") { 
         // Parsear parámetros
         std::string sizeStr = parseParameter(commandLine, "-size");
         std::string unit = parseParameter(commandLine, "-unit");
@@ -179,8 +184,8 @@ std::string executeCommand(const std::string& commandLine) {
             unidad = toLowerCase(unidad);
         }
 
-        if (unidad != "k" && unidad != "m") {
-            return "Error: unit debe ser 'k' (kilobytes) o 'm' (megabytes)";
+        if (unidad != "b" && unidad != "k" && unidad != "m") {
+            return "Error: unit debe ser 'b' (bytes) o 'k' (kilobytes) o 'm' (megabytes)";
         }
 
         std::string tipo = parseParameter(commandLine, "-type");
@@ -226,6 +231,30 @@ std::string executeCommand(const std::string& commandLine) {
     //COMANDO MOUNTED
     } else if (cmd == "mounted"){
         return ComandoMount::listMountedPartitions();
+
+    //COMANDO CAT
+    } else if (cmd == "cat"){
+        std::vector<std::string> archivos;
+
+        int i = 1;
+        while (true){
+            std::string path = parseParameter(commandLine, "-file" + std::to_string(i));
+            if(path.empty()) break;
+            archivos.push_back(removeQuotes(path));
+            i++;
+        }
+
+        if(archivos.empty()){
+            std::string path = parseParameter(commandLine, "-file");
+            if(!path.empty()){
+                archivos.push_back(removeQuotes(path));
+            } else {
+                return "Error: cat requiere almenos un parametro -file1 \n"
+                       "Uso: cat -file1=ruta1 ... -filen=rutan";
+            }
+        }
+        
+        return ComandoCat::execute(archivos);
 
     //COMANDO LOGIN
     } else if (cmd == "login"){
@@ -308,6 +337,88 @@ std::string executeCommand(const std::string& commandLine) {
         nombre = removeQuotes(nombre);
 
         return ComandoRmusr::execute(nombre);
+
+    //COMANDO CHGRP
+    } else if (cmd == "chgrp"){
+        std::string nombre = parseParameter(commandLine, "-user");
+        std::string grupo = parseParameter(commandLine, "-grp");
+
+        if(nombre.empty() || grupo.empty()){
+            return "Error: chgrp requiere el parametro -user y -grp\n"
+                   "Uso: chgrp -user=nombre -grp=grupo";
+        }
+
+        nombre = removeQuotes(nombre);
+        grupo = removeQuotes(grupo);
+
+        return ComandoChgrp::execute(nombre, grupo);
+
+    //COMANDO MKFILE
+    } else if (cmd == "mkfile"){
+        std::string path = parseParameter(commandLine, "-path");
+        std::string strR = parseParameter(commandLine, "-r");
+        std::string strSize = parseParameter(commandLine, "-size");
+        std::string cont = parseParameter(commandLine, "-cont");
+
+        if(path.empty()){
+            return "Error: mkfile requiere el parametro -path\n"
+                   "Uso: mkfile -path=ruta -r -size=tamano -cont=ruta";
+        }
+
+        path = removeQuotes(path);
+        cont = removeQuotes(cont);
+
+        std::string comandoMinusculas = toLowerCase(commandLine);
+        bool r = (comandoMinusculas.find("-r") != std::string::npos);
+
+        int size = strSize.empty() ? 0 : std::stoi(strSize);
+
+        return ComandoMkfile::execute(path, r, size, cont);
+
+    //COMANDO MKDIR
+    } else if (cmd == "mkdir"){
+        std::string path = parseParameter(commandLine, "-path");
+
+        if(path.empty()){
+            return "Error: mkdir requiere el parametro -path\n"
+                   "Uso: mkdir -path=ruta -p";
+        }
+
+        path = removeQuotes(path);
+
+        std::string comandoMinusculas = toLowerCase(commandLine);
+        bool p = false;
+        std::stringstream ssCmd(comandoMinusculas);
+        std::string palabra;
+
+        while (ssCmd >> palabra){
+            if (palabra == "-p"){
+                p = true;
+                break;
+            }
+        }
+        
+        return ComandoMkdir::execute(path, p);
+
+    //COMANDO REP
+    } else if(cmd == "rep"){
+        std::string name = parseParameter(commandLine, "-name");
+        std::string path = parseParameter(commandLine, "-path");
+        std::string id = parseParameter(commandLine, "-id");
+        std::string ruta = parseParameter(commandLine, "-path_file_ls");
+        
+
+        if(name.empty() || path.empty() || id.empty()){
+            return "Error: rep requiere los parametros -name, -path y -id\n"
+                   "Uso: rep -name=nombre -path=ruta -id=idParticion";
+        }
+
+        name = removeQuotes(name);
+        path = removeQuotes(path);
+        id = removeQuotes(id);
+        ruta = removeQuotes(ruta);
+
+        return ComandoRep::execute(name, path, id, ruta);
 
     //COMANDO INFO
     } else if (cmd == "info") {
