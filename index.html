@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consola MIA</title>
+    <style>
+        body { font-family: 'Courier New', Courier, monospace; background-color: #1e1e1e; color: #fff; padding: 0; margin: 0; }
+        
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #2d2d2d;
+            padding: 15px 30px;
+            border-bottom: 3px solid #007acc;
+            margin-bottom: 20px;
+        }
+        .navbar h1 { margin: 0; font-size: 22px; color: #00ff00; }
+        .nav-controls { display: flex; gap: 15px; }
+        
+        .btn-nav {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .btn-nav:hover { background-color: #45a049; }
+        
+        .btn-danger { background-color: #d32f2f; }
+        .btn-danger:hover { background-color: #b71c1c; }
+
+        .container { display: flex; gap: 20px; height: 80vh; padding: 0 30px; }
+        
+        .editor, .consola { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            min-height: 0; 
+            overflow: hidden;
+        }
+        h2 { margin-top: 0; color: #007acc; font-size: 18px; }
+        
+        textarea { 
+            flex: 1; background-color: #2d2d2d; color: whitesmoke; padding: 15px; 
+            border: 1px solid #555; resize: none; font-size: 15px; line-height: 1.4; 
+            min-height: 0; overflow-y: auto;
+        }
+        pre { 
+            flex: 1; background-color: #000; color: #fff; padding: 15px; 
+            border: 1px solid #555; overflow-y: auto; margin: 0; white-space: pre-wrap; 
+            font-size: 15px; min-height: 0;
+        }
+
+        
+        .btn-ejecutar { background-color: #007acc; color: white; border: none; padding: 15px; font-size: 16px; cursor: pointer; margin-top: 10px; font-weight: bold; border-radius: 4px;}
+        .btn-ejecutar:hover { background-color: #005999; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <h1>EXT2 File System</h1>
+        <div class="nav-controls">
+            <input type="file" id="fileInput" accept=".smia" style="display: none;" onchange="cargarArchivo(event)">
+            
+            <button class="btn-nav" onclick="document.getElementById('fileInput').click()">Cargar Script (.smia)</button>
+            <button class="btn-nav btn-danger" onclick="limpiarConsola()">Limpiar</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="editor">
+            <h2>Ingreso de Comandos</h2>
+            <textarea id="txtComandos" spellcheck="false" placeholder="Escribe tus comandos aqui"></textarea>
+            <button class="btn-ejecutar" onclick="ejecutarComandos()">EJECUTAR COMANDOS</button>
+        </div>
+
+        <div class="consola">
+            <h2>Salida del Sistema</h2>
+            <pre id="txtSalida">Esperando comandos...</pre>
+        </div>
+    </div>
+
+    <script>
+        function cargarArchivo(event) {
+            const archivo = event.target.files[0];
+            if (!archivo) {
+                return;
+            }
+
+            const lector = new FileReader();
+            lector.onload = function(e) {
+                const contenido = e.target.result;
+                document.getElementById('txtComandos').value = contenido;
+            };
+            
+            lector.readAsText(archivo);
+            
+            event.target.value = ""; 
+        }
+
+        function limpiarConsola() {
+            document.getElementById('txtComandos').value = "";
+            document.getElementById('txtSalida').textContent = "Esperando comandos";
+        }
+
+        async function ejecutarComandos() {
+            const textoComandos = document.getElementById('txtComandos').value;
+            const cajaSalida = document.getElementById('txtSalida');
+            
+            if (!textoComandos.trim()) {
+                alert("Por favor, ingresa un comando o carga un script.");
+                return;
+            }
+
+            cajaSalida.textContent = "Ejecutando \nPor favor espera...";
+
+            try {
+                const response = await fetch('http://localhost:3000/ejecutar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ consola: textoComandos })
+                });
+
+                const data = await response.json();
+                cajaSalida.textContent = data.respuesta;
+
+            } catch (error) {
+                cajaSalida.textContent = "Error de conexión con la API";
+            }
+        }
+    </script>
+</body>
+</html>

@@ -7,12 +7,12 @@
 
 
 struct Partition {
-    char part_status;          // Estado de la partición: '0' = inactiva, '1' = activa
-    char part_type;            // Tipo: 'P' = Primaria, 'E' = Extendida, 'L' = Lógica
-    char part_fit;             // Ajuste: 'B' = Best Fit, 'F' = First Fit, 'W' = Worst Fit
-    int part_start;            // Byte donde inicia la partición
-    int part_size;             // Tamaño de la partición en bytes
-    char part_name[16];        // Nombre de la partición (máx. 16 caracteres)
+    char part_status;          // Estado de la particion
+    char part_type;            // Tipo
+    char part_fit;             // Ajuste
+    int part_start;            // Byte donde inicia la particion
+    int part_size;             // Tamaño de la particion en bytes
+    char part_name[16];        // Nombre de la particion
 
     Partition() {
         part_status = '0';
@@ -28,25 +28,25 @@ struct Partition {
 struct MBR {
     int mbr_size;                      // Tamaño total del disco en bytes
     time_t mbr_creation_date;          // Fecha de creación del disco
-    int mbr_disk_signature;            // Firma única del disco
-    char disk_fit;                     // Ajuste del disco: 'B', 'F', 'W'
-    Partition mbr_partitions[4];       // Máximo 4 particiones (3 primarias + 1 extendida o 4 primarias)
+    int mbr_disk_signature;            // Firma unica del disco
+    char disk_fit;                     // Ajuste del disco
+    Partition mbr_partitions[4];       // 4 particiones 3 primarias + 1 extendida o 4 primarias
 
     MBR() {
         mbr_size = 0;
         mbr_creation_date = time(nullptr);
         mbr_disk_signature = rand();
-        disk_fit = 'F';  // First Fit por defecto
+        disk_fit = 'F';
     }
 };
 
 struct EBR {
-    char part_status;          // Estado de la partición lógica
-    char part_fit;             // Ajuste de la partición
-    int part_start;            // Byte donde inicia la partición lógica
-    int part_size;             // Tamaño de la partición lógica
-    int part_next;             // Byte donde inicia el siguiente EBR (-1 si no hay más)
-    char part_name[16];        // Nombre de la partición
+    char part_status;          // Estado de la particion logica
+    char part_fit;             // Ajuste de la particion
+    int part_start;            // Byte donde inicia la particion logica
+    int part_size;             // Tamaño de la particion logica
+    int part_next;             // Byte donde inicia el siguiente EBR
+    char part_name[16];        // Nombre de la particion
 
     EBR() {
         part_status = '0';
@@ -60,15 +60,15 @@ struct EBR {
 
 //Estructuras para mkfs
 struct Superblock {
-    int s_filesystem_type;         // Tipo de sistema de archivos: 2 = EXT2, 3 = EXT3
-    int s_inodes_count;            // Número total de inodos
-    int s_blocks_count;            // Número total de bloques
-    int s_free_blocks_count;       // Número de bloques libres
-    int s_free_inodes_count;       // Número de inodos libres
-    time_t s_mtime;                // Última fecha de montaje
-    time_t s_umtime;               // Última fecha de desmontaje
+    int s_filesystem_type;         // Tipo de sistema de archivos EXT2
+    int s_inodes_count;            // Numero total de inodos
+    int s_blocks_count;            // Numero total de bloques
+    int s_free_blocks_count;       // Numero de bloques libres
+    int s_free_inodes_count;       // Numero de inodos libres
+    time_t s_mtime;                // Ultima fecha de montaje
+    time_t s_umtime;               // Ultima fecha de desmontaje
     int s_mnt_count;               // Contador de montajes
-    int s_magic;                   // Número mágico del sistema de archivos (0xEF53)
+    int s_magic;                   // Numero magico 0xEF53
     int s_inode_size;              // Tamaño del inodo
     int s_block_size;              // Tamaño del bloque
     int s_first_ino;               // Primer inodo disponible
@@ -88,7 +88,7 @@ struct Superblock {
         s_umtime = time(nullptr);
         s_mnt_count = 0;
         s_magic = 0xEF53;
-        s_inode_size = 0;  // Se inicializa en mkfs
+        s_inode_size = 0;
         s_block_size = 64;
         s_first_ino = 0;
         s_first_blo = 0;
@@ -103,12 +103,12 @@ struct Inode {
     int i_uid;                     // UID del usuario propietario
     int i_gid;                     // GID del grupo propietario
     int i_size;                    // Tamaño del archivo en bytes
-    time_t i_atime;                // Última fecha de acceso
-    time_t i_ctime;                // Fecha de creación
-    time_t i_mtime;                // Última fecha de modificación
+    time_t i_atime;                // Ultima fecha de acceso
+    time_t i_ctime;                // Fecha de creacion
+    time_t i_mtime;                // Ultima fecha de modificacion
     int i_block[15];
-    char i_type;                   // Tipo: '1' = archivo, '0' = carpeta
-    int i_perm;                    // Permisos del archivo/carpeta
+    char i_type;                   // Tipo
+    int i_perm;                    // Permisos del archivo
 
     Inode() {
         i_uid = 0;
@@ -126,7 +126,7 @@ struct Inode {
 };
 
 struct Content {
-    char b_name[12];               // Nombre del archivo o carpeta
+    char b_name[12];               // Nombre del archivo
     int b_inodo;                   // Apuntador al inodo
 
     Content() {

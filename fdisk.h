@@ -11,7 +11,6 @@
 
 namespace ComandoFdisk {
     
-    // Expandir rutas que contengan ~ (home directory)
     inline std::string expandirRuta(const std::string& ruta) {
         if (ruta.empty() || ruta[0] != '~') {
             return ruta;
@@ -38,7 +37,6 @@ namespace ComandoFdisk {
         diskFile.seekg(0, std::ios::beg);
         diskFile.read(reinterpret_cast<char*>(&mbr), sizeof(MBR));
 
-        // Validar nombre único
         for (int i = 0; i < 4; i++) {
             if (mbr.mbr_partitions[i].part_status == '1' && 
                 strcmp(mbr.mbr_partitions[i].part_name, nombre.c_str()) == 0) {
@@ -73,7 +71,7 @@ namespace ComandoFdisk {
         int espacioSeleccionado = -1;
         int mejorAjuste = -1;
 
-        if (fit == 'F') {  // First Fit
+        if (fit == 'F') {
             for (int i = 0; i < 4; i++) {
                 if (mbr.mbr_partitions[i].part_status == '0') {
                     int posicionActual = sizeof(MBR);
@@ -93,7 +91,7 @@ namespace ComandoFdisk {
                     }
                 }
             }
-        } else if (fit == 'B') {  // Best Fit
+        } else if (fit == 'B') {
             int minimo = mbr.mbr_size;
             for (int i = 0; i < 4; i++) {
                 if (mbr.mbr_partitions[i].part_status == '0') {
@@ -115,7 +113,7 @@ namespace ComandoFdisk {
                     }
                 }
             }
-        } else {  // Worst Fit
+        } else {
             int maximoESpacio = 0;
             for (int i = 0; i < 4; i++) {
                 if (mbr.mbr_partitions[i].part_status == '0') {
@@ -236,7 +234,6 @@ namespace ComandoFdisk {
             diskFile.seekg(currentEBRPos, std::ios::beg);
             diskFile.read(reinterpret_cast<char*>(&currentEBR), sizeof(EBR));
 
-            // Validar nombre único
             if (currentEBR.part_status == '1' && 
                 strcmp(currentEBR.part_name, nombre.c_str()) == 0) {
                 diskFile.close();
@@ -244,7 +241,6 @@ namespace ComandoFdisk {
             }
 
             if (currentEBR.part_next == -1) {
-                // Último EBR encontrado
                 int nextEBRPos = currentEBR.part_start + currentEBR.part_size;
                 int espacioDisponible = extFin - nextEBRPos - sizeof(EBR);
 
@@ -281,48 +277,31 @@ namespace ComandoFdisk {
         }
     }
 
-    // Comando fdisk: Gestionar particiones en un disco
     inline std::string execute(int tamano, const std::string& unidad, const std::string& ruta, 
                                const std::string& tipo, const std::string& fit, 
-                               const std::string& bNombre, const std::string& nombre) {
+                               const std::string& nombre) {
         try {
             std::string expandedPath = expandirRuta(ruta);
 
-            // Verificar que el disco exista
             std::ifstream checkFile(expandedPath);
             if (!checkFile.good()) {
                 checkFile.close();
-                return "Error: El disco no existe";
+                return "Error: El disco no existe en la ruta indicada";
             }
             checkFile.close();
 
-            // Si es operación de eliminación
-            if (!bNombre.empty()) {
-                return "Error: La eliminación de particiones no está habilitada";
-            }
-
-            // Si es operación de adición (validar parámetros)
-            if (nombre.empty()) {
-                return "Error: Se requiere el parámetro -name";
-            }
-            if (tamano <= 0) {
-                return "Error: El tamaño debe ser mayor a 0";
-            }
-
-            // Calcular tamaño en bytes
             int sizeInBytes = tamano;
             if (unidad == "k" || unidad == "K") {
                 sizeInBytes = tamano * 1024;
             } else if (unidad == "m" || unidad == "M") {
                 sizeInBytes = tamano * 1024 * 1024;
-             } else if (unidad == "b" || unidad == "B") {
+            } else if (unidad == "b" || unidad == "B") {
                 sizeInBytes = tamano;
             } else {
-                return "Error: Unidad no válida. Use 'k' para KB o 'm' para MB";
+                return "Error: Unidad no válida. Use 'b', 'k' o 'm'";
             }
 
-            // Validar tipo de partición
-            char tipoParticion = 'P';  // Por defecto primaria
+            char tipoParticion = 'P'; 
             if (!tipo.empty()) {
                 if (tipo == "p" || tipo == "P") {
                     tipoParticion = 'P';
@@ -335,8 +314,7 @@ namespace ComandoFdisk {
                 }
             }
 
-            // Validar fit
-            char partFit = 'W';  // Worst Fit por defecto
+            char partFit = 'W'; 
             if (!fit.empty()) {
                 if (fit == "bf" || fit == "BF") {
                     partFit = 'B';
@@ -349,7 +327,6 @@ namespace ComandoFdisk {
                 }
             }
 
-            // Crear la partición
             if (tipoParticion == 'L') {
                 return crearParticionL(expandedPath, sizeInBytes, partFit, nombre);
             } else {

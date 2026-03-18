@@ -20,14 +20,14 @@
 #include "mkdir.h"
 #include "rep.h"
 
-// Función para convertir string a minúsculas
+// Funcion para convertir string a minusculas
 std::string toLowerCase(const std::string& str) {
     std::string result = str;
     std::transform(result.begin(), result.end(), result.begin(), ::tolower);
     return result;
 }
 
-// Función para remover comillas de una cadena
+// Funcion para remover comillas de una cadena
 std::string removeQuotes(const std::string& str) {
     if (str.length() >= 2 && 
         ((str.front() == '"' && str.back() == '"') || 
@@ -37,9 +37,9 @@ std::string removeQuotes(const std::string& str) {
     return str;
 }
 
-// Función para parsear parámetros con soporte para comillas y cualquier orden
+// Funcion para parsear parametros con soporte para comillas y cualquier orden
 std::string parseParameter(const std::string& commandLine, const std::string& paramName) {
-    // Buscar el parámetro
+    // Buscar el parametro
     std::string lowerCommandLine = toLowerCase(commandLine);
     std::string lowerParamName = toLowerCase(paramName);
     
@@ -80,30 +80,97 @@ std::string parseParameter(const std::string& commandLine, const std::string& pa
     }
 }
 
-// Función para parsear y ejecutar comandos
+std::string parametrosInvalidos(const std::string& commandLine, const std::vector<std::string>& parametrosValidos){
+    std::string minCmd = toLowerCase(commandLine);
+    size_t pos = 0;
+
+    while ((pos = minCmd.find("-", pos)) != std::string::npos){
+        if(pos > 0 && minCmd[pos - 1] != ' '){
+            pos++;
+            continue;
+        }
+        
+        size_t eqPos = minCmd.find('=', pos);
+        size_t spacePos = minCmd.find(' ', pos);
+
+        size_t endPos = std::min(eqPos, spacePos);
+        if(endPos == std::string::npos) {
+            endPos = minCmd.length();
+        }
+
+        std::string nombreParametro = minCmd.substr(pos, endPos - pos);
+
+        bool permitido = false;
+        for(const std::string& valido: parametrosValidos){
+            if(nombreParametro == toLowerCase(valido)){
+                permitido = true;
+                break;
+            }
+        }
+
+        if(!permitido){
+            return nombreParametro;
+        }
+
+        pos = endPos;
+    }
+    return "";
+}
+
+bool validarExtension(const std::string& path){
+    size_t pos = path.find_last_of('.');
+
+    if(pos == std::string::npos){
+        return false;
+    }
+
+    std::string ext = toLowerCase(path.substr(pos));
+
+    return ext == ".mia";
+}
+
+// Funcion para parsear y ejecutar comandos
 std::string executeCommand(const std::string& commandLine) {
     std::istringstream iss(commandLine);
     std::string cmd;
     iss >> cmd;
+
+    if(cmd.empty()){
+        return "";
+    }
     
-    // Convertir comando a minúsculas para comparación case-insensitive
     cmd = toLowerCase(cmd);
+
+    if(cmd[0] == '#'){
+        return commandLine;
+    }
 
     //COMANDO MKDISK
     if (cmd == "mkdisk") { 
-        // Parsear parámetros
+        std::vector<std::string> permitidos = {"-size", "-fit", "-unit", "-path"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando mkdisk";
+        }
+
         std::string sizeStr = parseParameter(commandLine, "-size");
         std::string unit = parseParameter(commandLine, "-unit");
         std::string path = parseParameter(commandLine, "-path");
+        std::string fit = parseParameter(commandLine, "-fit");
         
-        // Validar parámetros obligatorios
         if (sizeStr.empty() || path.empty()) {
             return "Error: mkdisk requiere parámetros -size y -path\n"
-                   "Uso: mkdisk -size=N -unit=[k|m] -path=ruta\n"
+                   "Uso: mkdisk -size=N -unit=[k|m] -path=ruta\n -fit=[BF|FF|WF]"
                    "Los parámetros pueden estar en cualquier orden";
         }
+
+        path = removeQuotes("path");
+
+        if(!validarExtension(path)){
+            return "Error: el disco debe tener la extension .mia";
+        }
         
-        // Convertir size a entero
         int size;
         try {
             size = std::stoi(sizeStr);
@@ -115,22 +182,27 @@ std::string executeCommand(const std::string& commandLine) {
             return "Error: el tamaño debe ser un número positivo";
         }
         
-        // Unit por defecto es megabytes si no se especifica
         if (unit.empty()) {
             unit = "m";
         } else {
             unit = toLowerCase(unit);
         }
         
-        // Validar unidad
         if (unit != "k" && unit != "m") {
             return "Error: unit debe ser 'k' (kilobytes) o 'm' (megabytes)";
         }
 
-        return DiskManager::mkdisk(size, unit, path);
+        return DiskManager::mkdisk(size, unit, path, fit);
 
     //COMANDO RMDISK
     } else if (cmd == "rmdisk") {
+        std::vector<std::string> permitidos = {"-path"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando rmdisk";
+        }
+
         std::string path = parseParameter(commandLine, "-path");
 
         if (path.empty()) {
@@ -138,26 +210,36 @@ std::string executeCommand(const std::string& commandLine) {
                    "Uso: rmdisk -path=ruta";
         }
 
+        path = removeQuotes("path");
+
+        if(!validarExtension(path)){
+            return "Error: el disco debe tener la extension .mia";
+        }
+
         return DiskManager::rmdisk(path);
 
     //COMANDO FDISK
     } else if (cmd == "fdisk"){
+        std::vector<std::string> permitidos = {"-path", "-size", "-unit", "-type", "-fit", "-name"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando fdisk";
+        }
+
         std::string ruta = parseParameter(commandLine, "-path");
         std::string nombre = parseParameter(commandLine, "-name");
-        std::string deleteName = parseParameter(commandLine, "-delete");
 
-        //Validacion Parametros
         if (ruta.empty()){
             return "Error: fdisk requiere parametro -path\n"
             "Uso: fdisk -size=N -unit=[k|m] -path=ruta -type=[P|E|L] -fit=[BF|FF|WF] -name=nombre\n"
             "fdisk -delete=nombre -path=ruta";
         }
 
-        //Eliminacion
-        if (nombre.empty()) {
-            return "Error: fdisk requiere parametro -name o -delete\n"
-                   "Uso: fdisk -size=N -unit=[k|m] -path=ruta -type=[P|E|L] -fit=[BF|FF|WF] -name=nombre\n"
-                   "fdisk -delete=nombre -path=ruta";
+        ruta = removeQuotes(ruta);
+
+        if(!validarExtension(ruta)){
+            return "Error: el disco debe tener la extension .mia";
         }
 
         std::string tamanoS = parseParameter(commandLine, "-size");
@@ -202,12 +284,26 @@ std::string executeCommand(const std::string& commandLine) {
             fit = toLowerCase(fit);
         }
 
-        return ComandoFdisk::execute(tamano, unidad, ruta, tipo, fit, "", nombre);
+        return ComandoFdisk::execute(tamano, unidad, ruta, tipo, fit , nombre);
 
     //COMANDO MOUNT
     } else if (cmd == "mount"){
+        std::vector<std::string> permitidos = {"-path", "-name"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando mount";
+        }
+
         std::string ruta = parseParameter(commandLine, "-path");
         std::string nombre = parseParameter(commandLine, "-name");
+
+        ruta = removeQuotes(ruta);
+        nombre = removeQuotes(nombre);
+
+        if(!validarExtension(nombre)){
+            return "Error: el disco debe tener la extension .mia";
+        }
         
         if (ruta.empty() || nombre.empty()) {
             return "Error: mount requiere parámetros -path y -name\n"
@@ -218,6 +314,13 @@ std::string executeCommand(const std::string& commandLine) {
 
     //COMANDO MKFS
     } else if (cmd == "mkfs") {
+        std::vector<std::string> permitidos = {"-id", "-type"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando mkfs";
+        }
+
         std::string id = parseParameter(commandLine, "-id");
         std::string type = parseParameter(commandLine, "-type");
         
@@ -258,6 +361,13 @@ std::string executeCommand(const std::string& commandLine) {
 
     //COMANDO LOGIN
     } else if (cmd == "login"){
+        std::vector<std::string> permitidos = {"-user", "-pass", "-id"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando login";
+        }
+
         std::string usuario = parseParameter(commandLine, "-user");
         std::string password = parseParameter(commandLine, "-pass");
         std::string id = parseParameter(commandLine, "-id");
@@ -286,6 +396,13 @@ std::string executeCommand(const std::string& commandLine) {
 
     //COMANDO MKGRP
     } else if (cmd == "mkgrp"){
+        std::vector<std::string> permitidos = {"-name"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando mkgrp";
+        }
+
         std::string nombre = parseParameter(commandLine, "-name");
 
         if(nombre.empty()){
@@ -298,6 +415,13 @@ std::string executeCommand(const std::string& commandLine) {
     
     //COMANDO RMGRP
     } else if (cmd == "rmgrp"){
+        std::vector<std::string> permitidos = {"-name"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando rmgrp";
+        }
+
         std::string nombre = parseParameter(commandLine, "-name");
 
         if(nombre.empty()){
@@ -310,6 +434,13 @@ std::string executeCommand(const std::string& commandLine) {
 
     //COMANDO MKUSR
     } else if (cmd == "mkusr"){
+        std::vector<std::string> permitidos = {"-user", "-pass", "-grp"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando mkuser";
+        }
+        
         std::string nombre = parseParameter(commandLine, "-user");
         std::string pass = parseParameter(commandLine, "-pass");
         std::string grupo = parseParameter(commandLine, "-grp");
@@ -327,6 +458,13 @@ std::string executeCommand(const std::string& commandLine) {
     
     //COMANDO RMUSR
     } else if (cmd == "rmusr"){
+        std::vector<std::string> permitidos = {"-user"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando rmuser";
+        }
+
         std::string nombre = parseParameter(commandLine, "-user");
 
         if(nombre.empty()){
@@ -340,6 +478,13 @@ std::string executeCommand(const std::string& commandLine) {
 
     //COMANDO CHGRP
     } else if (cmd == "chgrp"){
+        std::vector<std::string> permitidos = {"-user", "-grp"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando chgrp";
+        }
+
         std::string nombre = parseParameter(commandLine, "-user");
         std::string grupo = parseParameter(commandLine, "-grp");
 
@@ -355,6 +500,13 @@ std::string executeCommand(const std::string& commandLine) {
 
     //COMANDO MKFILE
     } else if (cmd == "mkfile"){
+        std::vector<std::string> permitidos = {"-path", "-r", "-size", "-cont"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando mkfile";
+        }
+
         std::string path = parseParameter(commandLine, "-path");
         std::string strR = parseParameter(commandLine, "-r");
         std::string strSize = parseParameter(commandLine, "-size");
@@ -377,6 +529,13 @@ std::string executeCommand(const std::string& commandLine) {
 
     //COMANDO MKDIR
     } else if (cmd == "mkdir"){
+        std::vector<std::string> permitidos = {"-path", "-p"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando mkdir";
+        }
+
         std::string path = parseParameter(commandLine, "-path");
 
         if(path.empty()){
@@ -402,6 +561,13 @@ std::string executeCommand(const std::string& commandLine) {
 
     //COMANDO REP
     } else if(cmd == "rep"){
+        std::vector<std::string> permitidos = {"-name", "-path", "-id", "-path_file_ls"};
+        std::string parametroInvalido = parametrosInvalidos(commandLine, permitidos);
+
+        if(!parametroInvalido.empty()){
+            return "Error: parametro no reconocido '" + parametroInvalido + "' en el comando rep";
+        }
+
         std::string name = parseParameter(commandLine, "-name");
         std::string path = parseParameter(commandLine, "-path");
         std::string id = parseParameter(commandLine, "-id");

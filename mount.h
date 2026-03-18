@@ -13,7 +13,6 @@
 
 namespace ComandoMount {
     
-    // Estructura para almacenar información de particiones montadas
     struct ParticionMontada {
         std::string ruta;          
         std::string nombre;          
@@ -30,7 +29,6 @@ namespace ComandoMount {
     
     static char siguienteLetra = 'a';
     
-    // Función auxiliar para expandir ~ a home directory
     inline std::string expandirRuta(const std::string& ruta) {
         if (ruta.empty() || ruta[0] != '~') {
             return ruta;
@@ -47,7 +45,6 @@ namespace ComandoMount {
         return ruta;
     }
     
-    // Función para buscar una partición en el MBR
     inline bool buscarParticionMBR(const std::string& ruta, const std::string& nombre, 
                                     char& tipo, int& inicio, int& tamano) {
         std::ifstream file(ruta, std::ios::binary);
@@ -55,15 +52,12 @@ namespace ComandoMount {
             return false;
         }
         
-        // Leer MBR
         MBR mbr;
         file.read(reinterpret_cast<char*>(&mbr), sizeof(MBR));
         
-        // Buscar en particiones primarias y extendidas
         for (int i = 0; i < 4; i++) {
             if (mbr.mbr_partitions[i].part_status == '1') {
                 std::string partName(mbr.mbr_partitions[i].part_name);
-                // Remover espacios en blanco del nombre
                 partName.erase(std::remove_if(partName.begin(), partName.end(), ::isspace), partName.end());
                 partName.erase(std::find(partName.begin(), partName.end(), '\0'), partName.end());
                 
@@ -75,7 +69,6 @@ namespace ComandoMount {
                     return true;
                 }
                 
-                // Si es extendida, buscar en particiones lógicas
                 if (mbr.mbr_partitions[i].part_type == 'E') {
                     int ebrPos = mbr.mbr_partitions[i].part_start;
                     while (ebrPos != -1) {
@@ -107,23 +100,19 @@ namespace ComandoMount {
         return false;
     }
     
-    // Función para generar el ID de montaje
     inline std::string generarIdMontaje(const std::string& ruta) {
 
         std::string carnet = "66";
         char letraDisco;
         
-        // Verificar si el disco ya tiene una letra asignada
         auto it = letrasDiscos.find(ruta);
         if (it != letrasDiscos.end()) {
             letraDisco = it->second;
         } else {
-            // Asignar nueva letra al disco
             letraDisco = siguienteLetra++;
             letrasDiscos[ruta] = letraDisco;
         }
         
-        // Contar cuántas particiones de este disco están montadas
         int numeroParticiones = 1;
         for (const auto& [id, partition] : particionesMontadas) {
             if (partition.ruta == ruta) {
@@ -131,7 +120,6 @@ namespace ComandoMount {
             }
         }
         
-        // Generar ID
         char letraMayus = std::toupper(letraDisco);
         std::string idMontaje = carnet;
         idMontaje += std::to_string(numeroParticiones);
@@ -140,7 +128,6 @@ namespace ComandoMount {
         return idMontaje;
     }
     
-    // Función para verificar si una partición ya está montada
     inline bool esParticionMontada(const std::string& ruta, const std::string& nombre) {
         for (const auto& [id, partition] : particionesMontadas) {
             if (partition.ruta == ruta && partition.nombre == nombre) {
@@ -149,12 +136,10 @@ namespace ComandoMount {
         }
         return false;
     }
-    
-    // Función principal para ejecutar el comando mount
+
     inline void ejecutarMount(const std::map<std::string, std::string>& params) {
         std::cout << "\n=== MOUNT ===" << std::endl;
         
-        // Verificar parámetros requeridos
         auto pathIt = params.find("-path");
         auto nameIt = params.find("-name");
         
@@ -166,7 +151,6 @@ namespace ComandoMount {
         std::string path = expandirRuta(pathIt->second);
         std::string name = nameIt->second;
         
-        // Verificar que el archivo del disco existe
         std::ifstream file(path);
         if (!file.good()) {
             std::cerr << "Error: el disco '" << path << "' no existe" << std::endl;
@@ -174,14 +158,12 @@ namespace ComandoMount {
         }
         file.close();
         
-        // Verificar si la partición ya está montada
         if (esParticionMontada(path, name)) {
             std::cerr << "Error: la partición '" << name << "' en '" << path 
                       << "' ya está montada" << std::endl;
             return;
         }
         
-        // Buscar la partición en el disco
         char type;
         int start, size;
         if (!buscarParticionMBR(path, name, type, start, size)) {
@@ -190,10 +172,8 @@ namespace ComandoMount {
             return;
         }
         
-        // Generar ID de montaje
         std::string mountID = generarIdMontaje(path);
         
-        // Crear estructura de partición montada
         ParticionMontada mounted;
         mounted.ruta = path;
         mounted.nombre = name;
@@ -202,7 +182,6 @@ namespace ComandoMount {
         mounted.inicio = start;
         mounted.tamano = size;
         
-        // Agregar al mapa de particiones montadas
         particionesMontadas[mountID] = mounted;
         
         std::cout << "Partición montada exitosamente" << std::endl;
@@ -214,34 +193,28 @@ namespace ComandoMount {
         std::cout << "  Tamaño: " << size << " bytes" << std::endl;
     }
     
-    // Sobrecarga de execute() que devuelve std::string (para compatibilidad con main.cpp)
     inline std::string execute(const std::string& pathParam, const std::string& nameParam) {
         std::string path = expandirRuta(pathParam);
         std::string name = nameParam;
         
-        // Verificar que el archivo del disco existe
         std::ifstream file(path);
         if (!file.good()) {
             return "Error: el disco '" + path + "' no existe";
         }
         file.close();
         
-        // Verificar si la partición ya está montada
         if (esParticionMontada(path, name)) {
             return "Error: la partición '" + name + "' en '" + path + "' ya está montada";
         }
         
-        // Buscar la partición en el disco
         char type;
         int start, size;
         if (!buscarParticionMBR(path, name, type, start, size)) {
             return "Error: no se encontró la partición '" + name + "' en el disco '" + path + "'";
         }
         
-        // Generar ID de montaje
         std::string mountID = generarIdMontaje(path);
         
-        // Crear estructura de partición montada
         ParticionMontada mounted;
         mounted.ruta = path;
         mounted.nombre = name;
@@ -250,7 +223,6 @@ namespace ComandoMount {
         mounted.inicio = start;
         mounted.tamano = size;
         
-        // Agregar al mapa de particiones montadas
         particionesMontadas[mountID] = mounted;
         
         std::ostringstream result;
@@ -266,7 +238,6 @@ namespace ComandoMount {
         return result.str();
     }
     
-    // Función para listar todas las particiones montadas (retorna string)
     inline std::string listMountedPartitions() {
         if (particionesMontadas.empty()) {
             return "No hay particiones montadas";
@@ -286,12 +257,10 @@ namespace ComandoMount {
         return result.str();
     }
     
-    // Función para mostrar todas las particiones montadas (imprime en consola)
     inline void showMountedPartitions() {
         std::cout << listMountedPartitions() << std::endl;
     }
     
-    // Función auxiliar para obtener información de una partición montada por su ID
     inline bool getMountedPartition(const std::string& id, ParticionMontada& partition) {
         auto it = particionesMontadas.find(id);
         if (it != particionesMontadas.end()) {
